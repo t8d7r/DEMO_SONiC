@@ -1,0 +1,47 @@
+- hosts: sonic
+  gather_facts: False
+  collections:
+    - dellemc.sonic
+  tasks:
+  - name: Wr mem
+    vars:
+      ansible_connection: network_cli
+    sonic_config:
+      commands: ['write mem'] 
+    register: result
+    until: result is not failed
+    retries: 100
+
+  - name: Disable ztp
+    connection: network_cli
+    sonic_config:
+      lines: no ztp enable
+    async: 180
+    poll: 5 
+    register: output_ztp
+    until: output_ztp is not failed
+    retries: 100
+
+  - name: Pause for 5 min before next task
+    pause:
+      seconds: 300
+
+  - name: wait for host up
+    wait_for_connection:
+      connect_timeout: 10
+      sleep: 5
+      delay: 5
+      timeout: 300
+
+  - name: Check ping
+    ansible.builtin.ping:
+    register: output_ping
+    until: output_ping.ping.find("pong") != -1
+    retries: 100
+
+  - name: Check system readiness
+    connection: ssh
+    shell: show system status
+    register: output_readiness
+    until: output_readiness.stdout.find("System is ready") != -1
+    retries: 100

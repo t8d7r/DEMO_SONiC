@@ -1,0 +1,114 @@
+---
+- hosts: sonic
+  gather_facts: False
+  connection: httpapi
+  collections:
+    - dellemc.enterprise_sonic
+  tasks:
+  - name: Config System
+    sonic_system:
+      config: "{{sonic_system}}"
+      state: merged
+    when: sonic_system is defined and sonic_system
+    register: result
+
+  - name: Enable Mgmt Vrf
+    vars:
+      ansible_connection: network_cli
+    sonic_config:
+      lines:  ip vrf mgmt
+    register: result
+
+  - name: Configure Interface
+    sonic_interfaces:
+      config: "{{sonic_interfaces}}"
+      state: merged
+    when: sonic_interfaces is defined and sonic_interfaces
+    register: result
+
+  - name: Configure Vlans
+    sonic_vlans:
+      config: "{{sonic_vlans}}"
+      state: merged
+    when: sonic_vlans is defined and sonic_vlans
+    register: result
+
+  - name: Configure L3 Interfaces
+    sonic_l3_interfaces:
+      config: "{{sonic_l3_interfaces}}"
+      state: merged
+    when: sonic_l3_interfaces is defined and sonic_l3_interfaces
+    register: result
+
+  - name: Configure Lag
+    sonic_lag_interfaces:
+      config: "{{sonic_lag_interfaces}}"
+      state: merged
+    when: sonic_lag_interfaces is defined and sonic_lag_interfaces
+    register: result
+
+  - name: Configure MLAG
+    sonic_mclag:
+      config: "{{sonic_mclag}}"
+      state: merged
+    when: sonic_mclag is defined and sonic_mclag
+    register: result
+
+  - name: Configure Vrfs
+    sonic_vrfs:
+      config: "{{sonic_vrfs}}"
+      state: merged
+    when: sonic_vrfs is defined and sonic_vrfs
+    register: result
+
+  - name: push prefix-list configs for clos-fabric usecase
+    vars:
+      ansible_connection: network_cli
+    sonic_config:
+      lines: ip prefix-list {{ item.0.name }} seq {{ item.1.seq }} {{ 'permit' if item.0.permit else 'deny' }} {{ item.1.ip }} {{ item.1.condition if item.1.condition is defined else ''}}
+    register: result
+    with_subelements:
+      - "{{sonic_prefix_list_cli}}"
+      - entries
+    when: sonic_prefix_list_cli is defined and sonic_prefix_list_cli
+    until: result is not failed
+
+  - name: push route-map prefix for clos-fabric usecase
+    vars:
+      ansible_connection: network_cli
+    sonic_config:
+      lines: match ip address prefix-list {{ item.match_ip_prefix_list }}
+      parents: route-map {{ item.name }}  {{ 'permit' if item.permit else 'deny' }}  {{ item.seq }}
+    loop: "{{sonic_route_maps_cli}}"
+    when: sonic_route_maps_cli is defined and sonic_route_maps_cli
+    register: result
+    until: result is not failed
+
+  - name: Configure BGP
+    sonic_bgp:
+      config: "{{sonic_bgp}}"
+      state: merged
+    when: sonic_bgp is defined and sonic_bgp
+    register: result
+
+  - name: Configure BGP AF
+    sonic_bgp_af:
+      config: "{{sonic_bgp_af}}"
+      state: merged
+    when: sonic_bgp_af is defined and sonic_bgp_af
+    register: result
+
+  - name: Configure BGP Neighbors
+    sonic_bgp_neighbors:
+      config: "{{sonic_bgp_neighbors}}"
+      state: merged
+    when: sonic_bgp_neighbors is defined and sonic_bgp_neighbors
+    register: result
+
+  - name: Configure Vxlan Overlay
+    sonic_vxlans:
+      config: "{{sonic_vxlans}}"
+      state: merged
+    when: sonic_vxlans is defined and sonic_vxlans
+    register: result
+

@@ -1,0 +1,243 @@
+switch_role: leaf
+
+mclag_system_mac: 52:54:00:a5:87:11
+mclag_gateway_mac: 52:54:00:a5:87:11
+
+sonic_system:
+  hostname: Leaf2
+  interface_naming: standard
+  anycast_address:
+    ipv4: true
+    mac_address: 52:54:00:a5:87:87
+
+sonic_interfaces:
+   - name: Eth1/1
+     description: To_Spine_1
+     enabled: true
+   - name: Eth1/2
+     description: To_Spine_2
+     enabled: true
+   - name: Eth1/8
+     description: To_MCLAG_peer
+     enabled: true
+   - name: Eth1/9
+     description: To_MCLAG_peer
+     enabled: true
+   - name: Loopback0
+     description: Loopback_underlay
+     enabled: true
+   - name: Loopback1
+     description: Loopback_overlay
+     enabled: true
+
+sonic_vlans:
+   - vlan_id: 100
+   - vlan_id: 200
+   - vlan_id: 300
+   - vlan_id: 400
+   - vlan_id: 500
+   - vlan_id: 1000
+   - vlan_id: 1001
+
+sonic_l3_interfaces:
+   - name: Loopback0
+     ipv4:
+       addresses:
+        - address: 10.0.0.2/32
+   - name: Loopback1
+     ipv4:
+       addresses:
+        - address: 10.0.10.1/32
+   - name: Eth1/3
+     ipv6:
+       enabled: false
+   - name: Eth1/4
+     ipv6:
+       enabled: false
+   - name: Eth1/5
+     ipv6:
+       enabled: false
+   - name: Eth1/6
+     ipv6:
+       enabled: false
+   - name: Eth1/7
+     ipv6:
+       enabled: false
+   - name: Eth1/8
+     ipv6:
+       enabled: false
+   - name: Eth1/9
+     ipv6:
+       enabled: false
+   - name: Vlan100
+     ipv4:
+       anycast_addresses:
+         - 192.168.10.254/24
+   - name: Vlan200
+     ipv4:
+       anycast_addresses:
+         - 192.168.20.254/24
+   - name: Vlan300
+     ipv4:
+       anycast_addresses:
+         - 192.168.30.254/24
+   - name: Vlan400
+     ipv4:
+       anycast_addresses:
+         - 192.168.40.254/24
+
+
+sonic_lag_interfaces:
+   - name: Portchannel1
+     members:
+      interfaces:
+        - member: Eth1/8
+        - member: Eth1/9
+
+sonic_mclag:
+  domain_id: 1
+  peer_address: 10.0.0.1
+  source_address: 10.0.0.2
+  peer_link: PortChannel1
+  keepalive: 1
+  session_timeout: 3
+
+sonic_vrfs:
+  - name: VrfPaire
+    members:
+      interfaces:
+        - name: Vlan200
+        - name: Vlan400
+        - name: Vlan1000
+  - name: VrfImpaire
+    members:
+      interfaces:
+        - name: Vlan100
+        - name: Vlan300
+        - name: Vlan1001
+
+sonic_route_maps_cli:
+  - name: REDISTU
+    permit: true
+    seq: 10
+    match_ip_prefix_list: UNDERLAY
+
+sonic_prefix_list_cli:
+  - name: UNDERLAY
+    permit: true
+    entries:
+     - ip: 10.0.0.0/24
+       condition: ge 32 le 32
+       seq: 1
+     - ip: 10.0.10.0/24
+       condition: ge 32 le 32
+       seq: 10
+
+sonic_bgp:
+   - bgp_as: "65001"
+     router_id: 10.0.0.2
+     bestpath:
+       as_path:
+         multipath_relax: true
+   - bgp_as: "65001"
+     vrf_name: VrfPaire
+   - bgp_as: "65001"
+     vrf_name: VrfImpaire
+
+sonic_bgp_af:
+    - bgp_as: "65001"
+      address_family:
+        afis:
+          - afi: l2vpn
+            safi: evpn
+            advertise_all_vni: true
+            advertise_prefix: 
+              - afi: ipv4
+                safi: unicast
+          - afi: ipv4
+            safi: unicast
+            redistribute:
+              - protocol: connected
+                route_map: REDISTU
+            max_path:
+              ebgp: 4
+    - bgp_as: "65001"
+      vrf_name: VrfPaire
+      address_family:
+        afis:
+          - afi: l2vpn
+            safi: evpn
+            advertise_prefix:
+              - afi: ipv4
+                safi: unicast
+          - afi: ipv4
+            safi: unicast
+            redistribute:
+              - protocol: connected
+    - bgp_as: "65001"
+      vrf_name: VrfImpaire
+      address_family:
+        afis:
+          - afi: l2vpn
+            safi: evpn
+            advertise_prefix:
+              - afi: ipv4
+                safi: unicast
+          - afi: ipv4
+            safi: unicast
+            redistribute:
+              - protocol: connected
+
+sonic_bgp_neighbors:
+    - bgp_as: "65001"
+      peer_group:
+        - name: SPINE
+          remote_as:
+            peer_type: external
+          advertisement_interval: 5
+          timers:
+            keepalive: 3
+            holdtime: 9
+          bfd: true
+          capability:
+            extended_nexthop: true
+          address_family:
+            afis:
+              - afi: l2vpn
+                safi: evpn
+                activate: true
+              - afi: ipv4
+                safi: unicast
+                activate: true
+                allowas_in:
+                  value: 2
+      neighbors:
+        - neighbor: Eth1/1
+          peer_group: SPINE
+        - neighbor: Eth1/2
+          peer_group: SPINE
+
+sonic_vxlans:
+  - name: vtep1
+    source_ip: 10.0.10.1
+    evpn_nvo: nvo1
+    vlan_map:
+      - vni: 100
+        vlan: 100
+      - vni: 200
+        vlan: 200
+      - vni: 300
+        vlan: 300
+      - vni: 400
+        vlan: 400
+      - vni: 500
+        vlan: 500
+      - vni: 1000
+        vlan: 1000
+      - vni: 1001
+        vlan: 1001
+    vrf_map:
+      - vni: 1000
+        vrf: VrfPaire
+      - vni: 1001
+        vrf: VrfImpaire

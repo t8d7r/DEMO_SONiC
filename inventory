@@ -1,0 +1,27 @@
+Spine1 ansible_host=172.16.0.3
+Spine2 ansible_host=172.16.0.7
+Leaf1 ansible_host=172.16.0.8
+Leaf2 ansible_host=172.16.0.2
+Leaf3 ansible_host=172.16.0.40
+Leaf4 ansible_host=172.16.0.4
+Bleaf5 ansible_host=172.16.0.5
+Bleaf6 ansible_host=172.16.0.1
+Extrouter ansible_host=172.16.0.6
+
+[Spines]
+Spine[1:2]
+
+[Leaves]
+Leaf[1:4]
+
+[Borders]
+Bleaf[5:6]
+
+[Routers]
+Extrouter
+
+[sonic:children]
+Spines
+Leaves
+Borders
+Routers

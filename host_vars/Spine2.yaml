@@ -1,0 +1,102 @@
+switch_role: spine
+
+sonic_system:
+  hostname: Spine2
+  interface_naming: standard
+
+sonic_interfaces:
+   - name: Eth1/1
+     description: To_Leaf_1
+     enabled: true
+   - name: Eth1/2
+     description: To_Leaf_2
+     enabled: true
+   - name: Eth1/3
+     description: To_Leaf_3
+     enabled: true
+   - name: Eth1/4
+     description: To_Leaf_4
+     enabled: true
+   - name: Eth1/5
+     description: To_BLeaf_5
+     enabled: true
+   - name: Eth1/6
+     description: To_BLeaf_6
+     enabled: true
+   - name: Loopback0
+     description: Loopback_underlay
+     enabled: true
+
+sonic_l3_interfaces:
+   - name: Loopback0
+     ipv4:
+       addresses: 
+        - address: 10.0.0.102/32
+
+sonic_route_maps_cli:
+  - name: REDISTU
+    permit: true
+    seq: 10
+    match_ip_prefix_list: UNDERLAY
+
+sonic_prefix_list_cli:
+  - name: UNDERLAY
+    permit: true
+    entries:
+     - ip: 10.0.0.0/24
+       condition: ge 32 le 32
+       seq: 10
+
+sonic_bgp:
+   - bgp_as: "65000"
+     router_id: 10.0.0.102
+     bestpath:
+       as_path:
+         multipath_relax: true
+
+sonic_bgp_af:
+    - bgp_as: "65000"
+      address_family:
+        afis:
+          - afi: ipv4
+            safi: unicast
+            redistribute:
+              - protocol: connected
+                route_map: REDISTU
+            max_path:
+              ebgp: 4
+
+sonic_bgp_neighbors:
+    - bgp_as: "65000"
+      peer_group:
+        - name: LEAF
+          remote_as:
+            peer_type: external
+          advertisement_interval: 5
+          timers:
+            keepalive: 3
+            holdtime: 9
+          bfd: true
+          capability:
+            extended_nexthop: true
+          address_family:
+            afis:
+              - afi: ipv4
+                safi: unicast
+                activate: true
+              - afi: l2vpn
+                safi: evpn
+                activate: true
+      neighbors:
+        - neighbor: Eth1/1 
+          peer_group: LEAF
+        - neighbor: Eth1/2 
+          peer_group: LEAF
+        - neighbor: Eth1/3 
+          peer_group: LEAF
+        - neighbor: Eth1/4 
+          peer_group: LEAF
+        - neighbor: Eth1/5 
+          peer_group: LEAF
+        - neighbor: Eth1/6 
+          peer_group: LEAF

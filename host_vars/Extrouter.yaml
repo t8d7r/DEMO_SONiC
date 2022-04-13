@@ -1,0 +1,5 @@
+switch_role: router
+
+sonic_system:
+  hostname: Extrouter
+  interface_naming: standard
